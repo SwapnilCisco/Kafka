@@ -298,11 +298,11 @@ public class ConsumerOffset {
 				+ "ORDER_LINE_ID,ORDER_ID,HOLDING_VIRTUAL_ACCOUNT_ID,HOLDING_SMART_ACCOUNT_ID,GG_ENQUEUE_TIME,GG_DEQUEUE_TIME,"
 				+ " ERP_SO_NUMBER,ERP_SO_LINE_NUMBER,CREATED_ON,CREATED_BY,ASSIGNMENT_EVENT,ACTIVE,ACCOUNT_TYPE, REC_INSERT_DATE, OFFSET ,PARTITION_NUMBER )"
 				+ " values ( " + obj.getWebOrdId() + "," + obj.getVrtlActId() + ","
-				+ commObj.dateFormat(obj.getUpdOn()) + "," + commObj.toStringFormat(obj.getUpdBy()) + ","
+//				+ commObj.dateFormat(obj.getUpdOn()) + "," + commObj.toStringFormat(obj.getUpdBy()) + ","
 				+ obj.getSmartActId() + "," + commObj.toStringFormat(obj.getOrdSrc()) + "," + obj.getLnId()
 				+ "," + obj.getOrdId() + "," + obj.getHldVrtlSmrtActId() + "," + obj.getSmartActId() + ","
-				+ commObj.dateFormat(obj.getGgEqTm()) + "," + commObj.dateFormat(obj.getGgDqTm()) + ","
-				+ obj.getErpSoNum() + "," + obj.getErpSoLnNum() + "," + commObj.dateFormat(obj.getCrOn()) + ","
+//				+ commObj.dateFormat(obj.getGgEqTm()) + "," + commObj.dateFormat(obj.getGgDqTm()) + ","
+//				+ obj.getErpSoNum() + "," + obj.getErpSoLnNum() + "," + commObj.dateFormat(obj.getCrOn()) + ","
 				+ commObj.toStringFormat(obj.getCrBy()) + "," + commObj.toStringFormat(obj.getAsgmtEvnt()) + ","
 				+ obj.getActive() + "," + commObj.toStringFormat(obj.getAcctTyp()) + ",sysdate," + offset + ","
 				+ Partition_Number + ")";

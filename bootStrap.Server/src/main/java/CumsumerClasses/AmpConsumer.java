@@ -6,10 +6,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 //import java.awt.dnd.DnDConstants;
 //import java.io.IOException;
@@ -44,12 +46,16 @@ public class AmpConsumer {
 		static dbConnection dbCon = null;
 		static String ccwTable = null;
 		static String ccwCommitTable = null;
-		static List<String> batch = new ArrayList<String>();
+		static Set<String> uniDataBatch = new HashSet<String>();
+		static List<String> dupDataBatch = new ArrayList<String>();
+		static Set<String> uniDataBatchMain = new HashSet<String>();
+		static List<String> dupDataBatchMain = new ArrayList<String>();
 		static int batchSize = 0;
 		static int Poll_ms = 0;
 		static String ErrDataTable = null;
 		static String BackupTable = null;
 		static String DupErrDataTable = null;
+		static int size = 0;
 		public static void main(String[] argv) throws Exception {
 			
 			commonUtility comm = new commonUtility();
@@ -205,9 +211,10 @@ public class AmpConsumer {
 				boolean insertFlag = false;
 				boolean recCheck = false;
 				int pollCount = 0;
+				dbConnection getconn = new dbConnection();
 				while (true) {
-					System.out.println("Poll Count : "+ pollCount++);
-					dbConnection getconn = new dbConnection();
+					//System.out.println("Poll Count : "+ pollCount++);
+					
 					ConsumerRecords<String, String> records = consumer.poll(Poll_ms);//Poll_ms);
 					recCheck = false;
 					// Partion processing
@@ -233,7 +240,7 @@ public class AmpConsumer {
 								objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 								//objectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 								responseObj = objectMapper.readValue(JsongetString, AmpCounsumerRespBean.class);								
-																
+								uniDataBatch.add(JsongetString);					
 							} catch (JsonParseException e) {
 								System.out.println("Error data hence inserting into table");
 								if (!Strings.isNullOrEmpty(JsongetString)) {
@@ -248,15 +255,28 @@ public class AmpConsumer {
 								//e.printStackTrace();
 							} catch (IOException e) {
 								e.printStackTrace();
+								continue;
 							}
 
-							// Code to store the latest offset and its partition
-							// number in CommitOffset table
-							hm.put(intPartition_Number, intOffset);						
-				
-							System.out.println("============== calling prepareBatchQuery =================");							
-							prepareBatchQuery(comm, responseObj, intOffset, intPartition_Number, BackupTable);
-							System.out.println("Record Number => " + i++);
+							// Code to store the latest offset and its partition							
+							hm.put(intPartition_Number, intOffset);		
+							
+							System.out.println("============== calling prepareBatchQuery =================");	
+							
+							// Old Logic to create batch for records											
+							//prepareBatchQuery(comm, responseObj, intOffset, intPartition_Number, BackupTable);
+							
+							// new Logic to filter data and separate the Duplicate and Unique records	
+							
+							//uniDataBatch.add(str1[i]);
+							if(size == uniDataBatch.size())
+								prepareDupDataBatchQuery(comm, responseObj, intOffset, intPartition_Number, DupErrDataTable);
+							else
+								prepareBatchQuery(comm, responseObj, intOffset, intPartition_Number, ccwTable);
+							
+							size = uniDataBatch.size();							
+							
+							System.out.println("Record Number => " + i++ + ", Size : " +  size);
 
 							if (i % 5 == 0) {
 								long lastOffset = partitionRecords.get(partitionRecords.size() - 1).offset();
@@ -267,22 +287,49 @@ public class AmpConsumer {
 							// Creating batch of 100 records
 							if(i % batchSize == 0){
 								//System.out.println("*************** Calling Batch execute query *****************");
-								dbCon.executeBatch(batch);
-								dbCon.copyTableData(BackupTable, ccwTable, DupErrDataTable);
-								dbCon.deleteTableData(BackupTable);
+//								dbCon.executeBatch(batch);
+//								dbCon.copyTableData(BackupTable, ccwTable, DupErrDataTable);
+//								dbCon.deleteTableData(BackupTable);
+								
+								if(uniDataBatch.size() > 0 || dupDataBatchMain.size() > 0){
+									//System.out.println("Calling batch execute query due to records <> 20 and loop terminated. Batch Size : "+ batch.size());
+									System.out.println("*************** Calling Batch execute query **************************");
+									if(uniDataBatch.size() > 0){	
+										
+										System.out.println("========== Insert into Unique table");
+										dbCon.executeUniqueBatch(uniDataBatchMain);
+									}
+									
+									if(dupDataBatchMain.size() > 0){
+										System.out.println("=========Insert into Duplicate table");
+										dbCon.executeBatchWithDuplicateData(dupDataBatchMain);
+									}
+									insertFlag = true;
+									
+								}
 								insertFlag = true;
-								batch.clear();
+								uniDataBatch.clear();
+								uniDataBatchMain.clear();
+								dupDataBatchMain.clear();
+								
+								size = 0;
 							
 							}
 						}  // End Partiton records for
 						
-						System.out.println("Insert flag : "+ insertFlag + ",  batch Size : "+ batch.size());
-						if(batch.size() > 0){
-							System.out.println("Calling batch execute query due to records <> 20 and loop terminated. Batch Size : "+ batch.size());
+						System.out.println("Insert flag : "+ insertFlag + ", Unique batch Size : "+ uniDataBatch.size()+ ", Duplicate batch Size : "+ dupDataBatchMain.size());
+						if(uniDataBatch.size() > 0 || dupDataBatchMain.size() > 0){
+							//System.out.println("Calling batch execute query due to records <> 20 and loop terminated. Batch Size : "+ batch.size());
 							System.out.println("*************** Calling Batch execute query **************************");
-							dbCon.executeBatch(batch);
-							dbCon.copyTableData(BackupTable, ccwTable, DupErrDataTable);
-							dbCon.deleteTableData(BackupTable);
+														
+							if(uniDataBatch.size() > 0){
+								System.out.println("========== Insert into Unique table =======");
+								dbCon.executeUniqueBatch(uniDataBatchMain);
+							}
+							if(dupDataBatchMain.size() > 0){
+								System.out.println("=========Insert into Duplicate table =========");
+								dbCon.executeBatchWithDuplicateData(dupDataBatchMain);
+							}
 							insertFlag = true;
 							System.out.println("*************************************************************");
 						}
@@ -290,9 +337,13 @@ public class AmpConsumer {
 						// Clear fields
 						//System.out.println("============== Clear fields =============================");
 						insertFlag = false;
-						batch.clear();
-						System.out.println("insertflag : "+ insertFlag + ", Batch Size : "+ batch.size());
-						//sSystem.out.println("==================== End Clear fields ==================");
+						uniDataBatch.clear();
+						uniDataBatchMain.clear();
+						dupDataBatchMain.clear();
+						size = 0;
+						System.out.println("Insert flag : "+ insertFlag + ", Unique batch Size : "+ uniDataBatch.size()+ ", Duplicate batch Size : "+ dupDataBatch.size());
+						
+						//System.out.println("==================== End Clear fields ==================");
 						
 						// Commit Offset after partiton records iteration
 						long lastOffset = partitionRecords.get(partitionRecords.size() - 1).offset();
@@ -304,7 +355,9 @@ public class AmpConsumer {
 						getconn.updateCommitedOffset(hm, ccwCommitTable);
 						getconn.updateNewOffset(hm, ccwCommitTable);
 					}
+					
 					// Control on poll() Count
+					/*
 					if (i > 2) {
 						System.out.println("Breaking while loop...!!");
 						break;
@@ -315,6 +368,8 @@ public class AmpConsumer {
 						System.out.println("No data returing from Poll hence terminating program.");
 						break;
 					}
+					
+					*/
 				} // end While
 			} catch (Exception e) {
 				System.out.println("Exception in Consumer class : " + e.getMessage());
@@ -326,10 +381,10 @@ public class AmpConsumer {
 			
 		}
 
-		public static void prepareBatchQuery(commonUtility commObj, AmpCounsumerRespBean obj, Integer offset, int Partition_Number, String ccwTable){
+		public static void prepareBatchQuery(commonUtility commObj, AmpCounsumerRespBean obj, Integer offset, int Partition_Number, String Table){
 			String query = null;
 			try{
-			 query = "insert into "+ccwTable+" (APPL_NAME, APPL_REQUEST_ID, TRANSACTION_TYPE, SUB_TRX_TYPE, CCO_USER_ID, "
+			 query = "insert into "+Table+" (APPL_NAME, APPL_REQUEST_ID, TRANSACTION_TYPE, SUB_TRX_TYPE, CCO_USER_ID, "
 					 + " INSTANCE_ID, CONTRACT_NUMBER, SERVICE_LINE_ID, SOURCE_CP_LINE_ID,TERMINATION_DATE,OFFSET ,partition_number) "
 					+ " values ( "
 					+ commObj.toStringFormat(obj.getApplName()) + "," + obj.getAppReqId() + ","
@@ -340,7 +395,29 @@ public class AmpConsumer {
 			
 			if(! Strings.isNullOrEmpty(query)){
 				System.out.println("Query  : "+ query);
-				batch.add(query);
+				uniDataBatchMain.add(query);
+			}
+			
+			}catch(Exception e){
+				System.out.println("Exception in prepareBatchQuery : "+ e.getMessage());
+			}
+		}
+		
+		public static void prepareDupDataBatchQuery(commonUtility commObj, AmpCounsumerRespBean obj, Integer offset, int Partition_Number, String Table){
+			String query = null;
+			try{
+			 query = "insert into "+Table+" (APPL_NAME, APPL_REQUEST_ID, TRANSACTION_TYPE, SUB_TRX_TYPE, CCO_USER_ID, "
+					 + " INSTANCE_ID, CONTRACT_NUMBER, SERVICE_LINE_ID, SOURCE_CP_LINE_ID,TERMINATION_DATE,OFFSET ,partition_number) "
+					+ " values ( "
+					+ commObj.toStringFormat(obj.getApplName()) + "," + obj.getAppReqId() + ","
+					+  commObj.toStringFormat(obj.getCCOUserId()) + "," +obj.getContractNumber() + "," + obj.getInstanceId()
+					+ "," + obj.getSerLineId()  + "," + commObj.toStringFormat(obj.getSrcCpLineId()) + "," + commObj.toStringFormat(obj.getSubTnxType())  + ","
+					+ commObj.toStringFormat(obj.getTrnxType()) + "," + commObj.dateFormat(obj.getTerDate())+","+offset+","+Partition_Number
+					+ ")";
+			
+			if(! Strings.isNullOrEmpty(query)){
+				System.out.println("Query  : "+ query);
+				dupDataBatchMain.add(query);
 			}
 			
 			}catch(Exception e){

@@ -14,7 +14,7 @@ public class AmpCounsumerRespBean {
 	long CONTRACT_NUMBER;
 	long SERVICE_LINE_ID;
 	String SOURCE_CP_LINE_ID;
-	Date TERMINATION_DATE;
+	String TERMINATION_DATE;
 		
 	
 	public String getApplName() {
@@ -80,10 +80,10 @@ public class AmpCounsumerRespBean {
 	}
 	
 	
-	public Date getTerDate() {
+	public String getTerDate() {
 		return TERMINATION_DATE;
 	}
-	public void setTerDate(Date TERMINATION_DATE) {
+	public void setTerDate(String TERMINATION_DATE) {
 		this.TERMINATION_DATE = TERMINATION_DATE;
 	}
 }

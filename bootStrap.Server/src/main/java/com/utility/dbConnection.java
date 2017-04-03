@@ -10,6 +10,7 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import CumsumerClasses.ConsumerResponseBean;
 import joptsimple.internal.Strings;
@@ -109,11 +110,11 @@ public class dbConnection {
 						+ "ORDER_LINE_ID,ORDER_ID,HOLDING_VIRTUAL_ACCOUNT_ID,HOLDING_SMART_ACCOUNT_ID,GG_ENQUEUE_TIME,GG_DEQUEUE_TIME,"
 						+ " ERP_SO_NUMBER,ERP_SO_LINE_NUMBER,CREATED_ON,CREATED_BY,ASSIGNMENT_EVENT,ACTIVE,ACCOUNT_TYPE, REC_INSERT_DATE, OFFSET ,PARTITION_NUMBER )"
 						+ " values ( " + obj.getWebOrdId() + "," + obj.getVrtlActId() + ","
-						+ commObj.dateFormat(obj.getUpdOn()) + "," + commObj.toStringFormat(obj.getUpdBy()) + ","
+//						+ commObj.dateFormat(obj.getUpdOn()) + "," + commObj.toStringFormat(obj.getUpdBy()) + ","
 						+ obj.getSmartActId() + "," + commObj.toStringFormat(obj.getOrdSrc()) + "," + obj.getLnId()
 						+ "," + obj.getOrdId() + "," + obj.getHldVrtlSmrtActId() + "," + obj.getSmartActId() + ","
-						+ commObj.dateFormat(obj.getGgEqTm()) + "," + commObj.dateFormat(obj.getGgDqTm()) + ","
-						+ obj.getErpSoNum() + "," + obj.getErpSoLnNum() + "," + commObj.dateFormat(obj.getCrOn()) + ","
+//						+ commObj.dateFormat(obj.getGgEqTm()) + "," + commObj.dateFormat(obj.getGgDqTm()) + ","
+//						+ obj.getErpSoNum() + "," + obj.getErpSoLnNum() + "," + commObj.dateFormat(obj.getCrOn()) + ","
 						+ commObj.toStringFormat(obj.getCrBy()) + "," + commObj.toStringFormat(obj.getAsgmtEvnt()) + ","
 						+ obj.getActive() + "," + commObj.toStringFormat(obj.getAcctTyp()) + ",sysdate," + offset + ","
 						+ Partition_Number + ")";
@@ -198,13 +199,11 @@ public class dbConnection {
 		
 	}
 
-	
-	public void executeBatchWithDuplicateHandle(List<String> batch) throws SQLException {		
+	public void executeUniqueBatch(Set<String> batch) throws SQLException {		
 		int count = 0;  
 	    int successCount = 0;
 	    int failCount = 0;
 	    int notAavailable = 0;
-	    boolean flag = false;
 		System.out.println("Batch Records Count = > "+ batch.size());
 		
 		Statement stmt = dbConn();
@@ -212,14 +211,15 @@ public class dbConnection {
 			for(String query : batch){
 				stmt.addBatch(query);
 			}
-			
 			System.out.println(" Number of record inserted in Batch => " + stmt.executeBatch());
 			stmt.close();
 			con.close();
 			
 		}catch (BatchUpdateException buex) {
-			flag = true;
 			System.out.println("Something went wrong in executing Batch query : "+ buex.getMessage());		
+			//stmt.close();
+			//con.close();
+			
 			
 	            buex.printStackTrace();
 	           // LogUtil.error(buex);
@@ -237,20 +237,30 @@ public class dbConnection {
 	                }
 	            }
 	            
-	        } finally {
-	        	System.out.println("Number of affected rows before Batch Error :: " + successCount);
-	        	System.out.println("Number of affected rows not available:" + notAavailable);
-	        	System.out.println("Failed Count in Batch because of Error:" + failCount);
-	        	stmt.close();
-	        	//con.rollback();
-				//con.close(); 
-	        }
-		// this will control if there is duplicate records
-		if(flag){
+	        } 	
+		
+	}
+	
+	public void executeBatchWithDuplicateData(List<String> batch) throws SQLException {		
+		
+		System.out.println("Inside executeBatchWithDuplicateData function , Batch Records Count = > "+ batch.size());
+		
+		Statement stmt = dbConn();
+		try {				
+			for(String query : batch){
+				stmt.addBatch(query);
+			}			
+			System.out.println(" Number of record inserted in Batch => " + stmt.executeBatch());
+			stmt.close();
+			con.close();
 			
-		}else{
+		}catch (BatchUpdateException buex) {
+			//flag = true;
+			System.out.println("Something went wrong in executing Batch query : "+ buex.getMessage());		
 			
 		}
+		// this will control if there is duplicate records
+		
 	}
 
 	

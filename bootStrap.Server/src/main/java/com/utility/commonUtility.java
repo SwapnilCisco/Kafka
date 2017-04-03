@@ -45,16 +45,50 @@ public class commonUtility {
 
 
 	
-	public String dateFormat(Date strDate){
+	public String dateFormat(String strDate){
 		String formatedDate = null;
-		//System.out.println("Date : "+ strDate);
+		
+		
 		try{
 			
 			if(strDate == null){
 				//System.out.println("2");
 				return "null";			
-			}else{
+			}else if(strDate.toString().length() == 10){
+				//System.out.println("Date "+ strDate);
+				//System.out.println("Date length : "+ strDate.toString().length());
 				
+				/*
+				String strda = strDate.toString();
+				SimpleDateFormat formatter1 = new SimpleDateFormat("yyyy-MM-dd");
+				Date Date1 = (Date)formatter1.parse(strda);
+				
+				String strDate1 = Date1.toString();
+				SimpleDateFormat formatter = new SimpleDateFormat("E MMM dd HH:mm:ss Z yyyy");
+		        Date dateStr = formatter.parse(strDate1.toString());
+		        String formattedDate = formatter.format(dateStr);
+				
+				Date date1 = formatter.parse(formattedDate);
+		        formatter = new SimpleDateFormat("MM/dd/yyyy");
+		        formattedDate = formatter.format(date1);
+		        return "to_date('"+formatedDate+"','MM/dd/YYYY')";
+		        */
+				//System.out.println("Date Format is yyyy-MM-dd");
+				
+		        String bdate = strDate.toString();
+		        //System.out.println("Before Date : "+ bdate);
+		        SimpleDateFormat sdf=new SimpleDateFormat("yyyy-MM-dd");
+		        Date adate=sdf.parse(bdate);
+		        sdf=new SimpleDateFormat("MM/dd/yyyy");
+		       // System.out.println("After Date : "+ sdf.format(adate));
+		        formatedDate = sdf.format(adate);
+		        return "to_date('"+formatedDate+"','MM/dd/YYYY')";
+		        		
+			}else{
+				//System.out.println("Date : "+ strDate);
+				//System.out.println("Date length : "+ strDate.toString().length());
+				
+				/*
 				String dateStr = strDate.toString(); // "Fri Feb 17 21:55:07 PST 2017";
 				DateFormat formatter = new SimpleDateFormat("E MMM dd HH:mm:ss Z yyyy");
 				Date date;
@@ -63,16 +97,29 @@ public class commonUtility {
 				Calendar cal = Calendar.getInstance();
 				cal.setTime(date);
 				String timeZ = null;
+				
 				// Calculate PM_AM
 				if((cal.get(Calendar.HOUR)) > 12)
 					timeZ = "AM";
 				else
 					timeZ = "PM";
+				
 				//Arrange date format as per Requirement
 				formatedDate = (cal.get(Calendar.MONTH) + 1) +"/"+ cal.get(Calendar.DATE) +"/" + cal.get(Calendar.YEAR)
 				+" "+ (cal.get(Calendar.HOUR))+":"+ (cal.get(Calendar.MINUTE))+":"+(cal.get(Calendar.SECOND));
+				*/				
+				
+				String strDate1 = strDate.toString();
+				SimpleDateFormat formatter = new SimpleDateFormat("E MMM dd HH:mm:ss Z yyyy");
+		        Date dateStr = formatter.parse(strDate1.toString());
+		        String formattedDate = formatter.format(dateStr);
+				
+				Date date1 = formatter.parse(formattedDate);
+		        formatter = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+		        formattedDate = formatter.format(date1);
 				
 				return "to_date('"+formatedDate+"','MM/dd/YYYY HH24:MI:SS')";
+				
 			}
 		}catch(Exception e){			
 			System.out.println("Exception in dateFormat() function || Date : "+strDate +" || Error : "+ e.getMessage());
