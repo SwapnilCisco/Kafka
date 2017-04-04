@@ -1,4 +1,4 @@
-package CumsumerClasses;
+package functionalUtility;
 
 import java.util.Date;
 

@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import CumsumerClasses.ConsumerResponseBean;
 import joptsimple.internal.Strings;
 
 public class dbConnection {
@@ -86,7 +84,7 @@ public class dbConnection {
 		}
 		return null;
 	}
-
+/*
 	public void insertIntoDatabase(ConsumerResponseBean obj, long offset, int Partition_Number, String ccwTable) {
 		try {
 			commonUtility commObj = new commonUtility();
@@ -134,6 +132,9 @@ public class dbConnection {
 			e.printStackTrace();
 		}
 	}
+	
+	*/
+	
 	
 	public void insertErrData(String Json ,String ccwTable) {
 		try {			

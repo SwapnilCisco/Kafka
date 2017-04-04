@@ -6,7 +6,7 @@
 	<artifactId>bootStrap.Server</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
-	
+
 	<name>bootStrap.Server</name>
 	<url>http://maven.apache.org</url>
 
@@ -26,14 +26,22 @@
 			<version>1.7.0</version>
 		</dependency>
 
-
+       <!-- Oracle -->
+		<dependency>
+			<groupId>com.oracle</groupId>
+			<artifactId>ojdbc14</artifactId>
+			<version>14</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/src/lib/ojdbc14.jar</systemPath>
+		</dependency>
+		
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>kafka-clients</artifactId>
 			<version>0.10.0.0</version>
 		</dependency>
 
-		<!-- https://mvnrepository.com/artifact/net.sf.jopt-simple/jopt-simple -->
+
 		<dependency>
 			<groupId>net.sf.jopt-simple</groupId>
 			<artifactId>jopt-simple</artifactId>
@@ -98,12 +106,12 @@
 
 
 	</dependencies>
-	
+
 	<build>
 
 		<plugins>
 
-			<plugin>
+		 	<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.1</version>
 				<configuration>
@@ -111,8 +119,9 @@
 					<executable>C:\Program Files\Java\jdk1.7.0_80\bin\javac.exe</executable>
 				</configuration>
 			</plugin>
-	
-	 
+ 
+
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-dependency-plugin</artifactId>
@@ -132,7 +141,7 @@
 					</execution>
 				</executions>
 			</plugin>
-			
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
@@ -145,7 +154,7 @@
 				</configuration>
 			</plugin>
 
-			<plugin>
+	 		<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
 				<version>2.5.3</version>
 				<configuration>
@@ -161,23 +170,24 @@
 					</execution>
 				</executions>
 			</plugin>
-			
+
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>exec-maven-plugin</artifactId>
 				<version>1.2.1</version>
 				<!-- <executions> <execution> <phase>package</phase> <goals> <goal>java</goal> 
-					</goals> </execution> </executions> -->
+				 	</goals> </execution> </executions>
+				 -->
 				<configuration>
 					<mainClass>com.kafka.bootStrap.bootStrap.Server.App</mainClass>
 					<cleanupDaemonThreads>false</cleanupDaemonThreads>
 				</configuration>
 			</plugin>
-			
+
 		</plugins>
 
 	</build>
-	
 
-	
+
+
 </project>
