@@ -55,7 +55,7 @@ public class AmpConsumer {
 	static String BackupTable = null;
 	static String DupErrDataTable = null;
 	static int size = 0;
-	static String mainTableColsList = null;
+	static String mainTableColsList = null;	
 	static String dupErrTableColsList = null;
 
 	public static void main(String[] argv) throws Exception {
@@ -190,7 +190,7 @@ public class AmpConsumer {
 								System.out.println(
 										topicPartition.partition() + " Partition, Reading from Current offset");
 								 // consumer.seekToBeginning(partitions);
-								consumer.seek(topicPartition, currOffset); // uncomment after testing
+								consumer.seek(topicPartition, 0); // uncomment after testing
 							} else if (hm.get(topicPartition.partition()) != 0) {
 								System.out.println(
 										topicPartition.partition() + " Partition, Reading from table commit offset");
@@ -227,7 +227,7 @@ public class AmpConsumer {
 					// Processing records from individual partition
 					for (ConsumerRecord<String, String> record : partitionRecords) {
 						recCheck = true;
-						System.out.println(record.partition() + " || " + record.offset() + " || " + record.value());
+						//System.out.println(record.partition() + " || " + record.offset() + " || " + record.value());
 						String JsongetString = new String(record.value());
 						// System.out.println("JsongetString : "+
 						// JsongetString);
@@ -262,16 +262,6 @@ public class AmpConsumer {
 						// Code to store the latest offset and its partition
 						hm.put(intPartition_Number, intOffset);
 
-						System.out.println("============== calling prepareBatchQuery =================");
-
-						// Old Logic to create batch for records
-						// prepareBatchQuery(comm, responseObj, intOffset,
-						// intPartition_Number, BackupTable);
-
-						// new Logic to filter data and separate the Duplicate
-						// and Unique records
-
-						// uniDataBatch.add(str1[i]);
 						if (size == uniDataBatch.size())
 							prepareDupDataBatchQuery(comm, responseObj, JsongetString, intOffset, intPartition_Number,
 									DupErrDataTable, dupErrTableColsList);
@@ -281,31 +271,27 @@ public class AmpConsumer {
 
 						size = uniDataBatch.size();
 
-						System.out.println("Record Number => " + i++ + ", Size : " + size);
+						//System.out.println("Record Number => " + i + ", Size : " + size);
 
 						if (i % 5 == 0) {
 							long lastOffset = partitionRecords.get(partitionRecords.size() - 1).offset();
-							consumer.commitSync(
-									Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));
+							consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));
 							// getconn.updateCommitedOffset(hm, ccwCommitTable);
 						}
 
 						// Creating batch of 100 records
-						if (i % batchSize == 0) {
+						if (i++ % batchSize == 0) {
 							if (uniDataBatch.size() > 0 || dupDataBatchMain.size() > 0) {
-								// System.out.println("Calling batch execute
-								// query due to records <> 20 and loop
-								// terminated. Batch Size : "+ batch.size());
-								System.out.println(
-										"*************** Calling Batch execute query **************************");
+								
+								//System.out.println("*************** Calling Batch execute query **************************");
 								if (uniDataBatch.size() > 0) {
 
-									System.out.println("========== Insert into Unique table");
+									System.out.println("1. ========== Insert into Unique table ===========");
 									dbCon.executeUniqueBatch(uniDataBatchMain);
 									getconn.updateCommitedOffset(hm, ccwCommitTable);
 								}
 								if (dupDataBatchMain.size() > 0) {
-									System.out.println("=========Insert into Duplicate table");
+									System.out.println("1. =========Insert into Duplicate table =============");
 									dbCon.executeBatchWithDuplicateData(dupDataBatchMain);
 								}
 								insertFlag = true;
@@ -320,26 +306,20 @@ public class AmpConsumer {
 
 						}
 					} // End Partiton records for
-
-					System.out.println("Insert flag : " + insertFlag + ", Unique batch Size : " + uniDataBatch.size()
-							+ ", Duplicate batch Size : " + dupDataBatchMain.size());
+					
 					if (uniDataBatch.size() > 0 || dupDataBatchMain.size() > 0) {
-						// System.out.println("Calling batch execute query due
-						// to records <> 20 and loop terminated. Batch Size : "+
-						// batch.size());
-						System.out.println("*************** Calling Batch execute query **************************");
 
 						if (uniDataBatch.size() > 0) {
-							System.out.println("========== Insert into Unique table =======");
+							System.out.println("2. ========== Insert into Unique table =======");
 							dbCon.executeUniqueBatch(uniDataBatchMain);
 							getconn.updateCommitedOffset(hm, ccwCommitTable);
 						}
 						if (dupDataBatchMain.size() > 0) {
-							System.out.println("=========Insert into Duplicate table =========");
+							System.out.println("2. ========= Insert into Duplicate table =========");
 							dbCon.executeBatchWithDuplicateData(dupDataBatchMain);
 						}
 						insertFlag = true;
-						System.out.println("*************************************************************");
+						//System.out.println("*************************************************************");
 					}
 
 					// Clear fields
@@ -363,16 +343,10 @@ public class AmpConsumer {
 				}
 
 				// Control on poll() Count
-//				if (i > 5) {
-//					System.out.println("Breaking while loop...!!");
-//					break;
-//				}
-
-				/*
-				 * if(pollCount > 100) { System.out.println(
-				 * "No data returing from Poll hence terminating program.");
-				 * break; }
-				 */
+				if (i > 20) {
+					System.out.println("Breaking while loop...!!");
+					break;
+				}				
 
 			} // end While
 		} catch (Exception e) {
@@ -395,7 +369,7 @@ public class AmpConsumer {
 					+ "," + commObj.toStringFormat(obj.getTrnxType()) + "," + commObj.dateFormat(obj.getTerDate()) + ","
 					+ offset + "," + Partition_Number + ")";
 			if (!Strings.isNullOrEmpty(query)) {
-				// System.out.println("Query : "+ query);
+				 //System.out.println("Query : "+ query);
 				uniDataBatchMain.add(query);
 			}
 		} catch (Exception e) {

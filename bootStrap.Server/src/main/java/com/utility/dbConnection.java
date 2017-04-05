@@ -164,7 +164,8 @@ public class dbConnection {
 			for(String query : batch){
 				stmt.addBatch(query);
 			}
-			System.out.println(" Number of record inserted in Batch => " + stmt.executeBatch());
+			int count1[] = stmt.executeBatch();
+			//System.out.println(" Number of record inserted in Batch => " + stmt.executeBatch());
 			stmt.close();
 			con.close();
 			
@@ -212,7 +213,8 @@ public class dbConnection {
 			for(String query : batch){
 				stmt.addBatch(query);
 			}
-			System.out.println(" Number of record inserted in Batch => " + stmt.executeBatch());
+			stmt.executeBatch();
+			//System.out.println(" Number of record inserted in Batch => " + stmt.executeBatch());
 			stmt.close();
 			con.close();
 			
@@ -250,8 +252,9 @@ public class dbConnection {
 		try {				
 			for(String query : batch){
 				stmt.addBatch(query);
-			}			
-			System.out.println(" Number of record inserted in Batch => " + stmt.executeBatch());
+			}	
+			stmt.executeBatch();
+			// System.out.println(" Number of record inserted in Batch => " + stmt.executeBatch());
 			stmt.close();
 			con.close();
 			
