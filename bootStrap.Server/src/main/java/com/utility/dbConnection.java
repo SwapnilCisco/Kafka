@@ -7,7 +7,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -71,7 +74,7 @@ public class dbConnection {
 				// System.out.println("Query result : "+ rs1.last());
 				while (rs1.next()) {
 					System.out.println(
-							"Partition : " + rs1.getInt("PARTITION_NUMBER") + " , Offset : " + rs1.getInt("OFFSET"));
+							"Commited Offset found in Table => Partition : " + rs1.getInt("PARTITION_NUMBER") + " , Offset : " + rs1.getInt("OFFSET"));
 					hm.put(rs1.getInt("PARTITION_NUMBER"), rs1.getInt("OFFSET"));
 				}
 				con.close();
@@ -201,47 +204,130 @@ public class dbConnection {
 		
 	}
 
-	public void executeUniqueBatch(Set<String> batch) throws SQLException {		
+	public boolean executeUniqueBatch(Set<String> batch , Set<String> batch_Json, String Table, String colsList) throws SQLException {		
 		int count = 0;  
 	    int successCount = 0;
 	    int failCount = 0;
 	    int notAavailable = 0;
+	    
 		System.out.println("Batch Records Count = > "+ batch.size());
 		
 		Statement stmt = dbConn();
-		try {				
+		try {	
+			
 			for(String query : batch){
 				stmt.addBatch(query);
+				
 			}
 			stmt.executeBatch();
 			//System.out.println(" Number of record inserted in Batch => " + stmt.executeBatch());
+			batch.clear();
 			stmt.close();
 			con.close();
 			
-		}catch (BatchUpdateException buex) {
-			System.out.println("Something went wrong in executing Batch query : "+ buex.getMessage());		
-			//stmt.close();
-			//con.close();
 			
+		}catch (BatchUpdateException buex) {
+			///System.out.println("Duplicate re");		
+			//stmt.close();
+			//con.close();		
 			
 	            buex.printStackTrace();
 	           // LogUtil.error(buex);
-	            int[] updateCounts = buex.getUpdateCounts();
-	            System.out.println("Update records Count : "+ updateCounts.length);
-	            for (int i = 0; i < updateCounts.length; i++) {
-	            	
-	            	System.out.println(" updateCounts["+i+"] : "+ updateCounts[i] +" , "+  Statement.SUCCESS_NO_INFO  +" , "+  Statement.SUCCESS_NO_INFO);
-	                if (updateCounts[i] >= 0) {
-	                    successCount++;	                         
-	                } else if (updateCounts[i] == Statement.SUCCESS_NO_INFO) {
-	                    notAavailable++;	                     
-	                } else if (updateCounts[i] == Statement.EXECUTE_FAILED) {
-	                    failCount++;	                     
-	                }
-	            }
 	            
-	        } 	
-		
+	            int[] updateCounts = buex.getUpdateCounts();
+	            
+	            System.out.println("Update records Count after exception : "+ updateCounts.length);
+//	            for (int i = 0; i < updateCounts.length; i++) {
+//	            	
+//	            	System.out.println(" updateCounts["+i+"] : "+ updateCounts[i] +" , "+  Statement.EXECUTE_FAILED  +" , "+  Statement.SUCCESS_NO_INFO);
+//	                if (updateCounts[i] >= 0) {
+//	                    successCount++;	                         
+//	                } else if (updateCounts[i] == Statement.SUCCESS_NO_INFO) {
+//	                    notAavailable++;	                     
+//	                } else if (updateCounts[i] == Statement.EXECUTE_FAILED) {
+//	                    failCount++;	                     
+//	                }
+//	            }	            
+	            
+	            if(updateCounts.length != batch.size()){
+		           List<String> dupSubList = new ArrayList(batch); 
+		           //System.out.println("dupSubList : "+ dupSubList.size());
+		           System.out.println("last insert statement : "+ dupSubList.get(updateCounts.length ));
+		           
+		           // insert duplicate records
+		           List<String> dupRec = new ArrayList<String>();
+		           if(batch.size() == 1){
+		        	   	dupRec.add(dupSubList.get(updateCounts.length));
+		        	   	System.out.println("1. Sub list size : "+ dupRec.size());
+		           }
+		           else{
+		        	   if(updateCounts.length == 0)
+		        		   dupRec.add(dupSubList.get(updateCounts.length));
+		        	   else
+		        		   dupRec.add(dupSubList.get(updateCounts.length + 1));
+		        	   
+		        	   System.out.println("2. Sub list size : "+ dupRec.size());
+		           }
+		           
+		           
+		           System.out.println("dupRec : "+ dupRec.size() +  "Query : "+ dupRec.get(0));
+		           
+		           String[] splitStr = dupRec.get(0).split(",");
+		           Iterator iter = batch_Json.iterator();
+		           String strtemp = null;
+			   		while (iter.hasNext()) {
+			   			strtemp = iter.next().toString();
+			   		    //System.out.println(strtemp);			   		    
+			   		    if(strtemp.toString().contains(splitStr[12])){
+			   		    	//System.out.println("Found");
+			   		    	break;
+			   		    }
+			   		}		   		
+		           String query = "insert into " + Table + " (" + colsList + ")" + " values (" + splitStr[12] + ",'" + strtemp
+							+ "', sysdate )";
+		           dupRec.clear();
+		           dupRec.add(query);
+		           System.out.println("New Query : "+ dupRec.get(0));
+		           executeBatchWithDuplicateData(dupRec);
+		           
+		           if(batch.size() > 1 ){
+		        	   
+		        	   if(updateCounts.length == 0) {
+		        		   List<String> arr = dupSubList.subList(updateCounts.length + 1, batch.size());
+		        		   Set<String> batch1 = new HashSet<String>(arr);
+		        		   executeUniqueBatch(batch1 , batch_Json ,  Table,  colsList);
+		        	   }else{
+		        		   if(batch.size() == updateCounts.length + 2){
+			        		   List<String> arr = dupSubList.subList(updateCounts.length + 1, batch.size());
+			        		   Set<String> batch1 = new HashSet<String>(arr);
+			        		   executeUniqueBatch(batch1 , batch_Json ,  Table,  colsList);
+		        		   }else{
+		        			   List<String> arr = dupSubList.subList(updateCounts.length + 2, batch.size());
+			        		   Set<String> batch1 = new HashSet<String>(arr);
+			        		   executeUniqueBatch(batch1 , batch_Json ,  Table,  colsList);
+		        		   }
+		        	   }
+			           //List<String> arr = dupSubList.subList(updateCounts.length + 2, batch.size());
+			          
+			           
+			           //display data for dubgging
+//			           for(int i = updateCounts.length + 2; i <  batch1.size() ; i++){
+//			        	   System.out.println("Rec Index : "+ i + ", data : "+ arr.get(i));
+//			           }
+		            
+			           // Calling recursive function
+			          
+	            	}else{
+	            		return true;
+	            	}
+	            }else{
+	            	return true;
+	            }
+		}	
+		if(batch.size() > 0)
+			return false;
+		else
+			return true;
 	}
 	
 	public void executeBatchWithDuplicateData(List<String> batch) throws SQLException {		

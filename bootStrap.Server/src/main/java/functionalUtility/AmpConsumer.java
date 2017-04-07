@@ -57,7 +57,7 @@ public class AmpConsumer {
 	static int size = 0;
 	static String mainTableColsList = null;	
 	static String dupErrTableColsList = null;
-
+	static int initFlag = 0;
 	public static void main(String[] argv) throws Exception {
 
 		commonUtility comm = new commonUtility();
@@ -75,7 +75,7 @@ public class AmpConsumer {
 		DupErrDataTable = prop.getProperty("AMPDupErrDataTable");
 		mainTableColsList = prop.getProperty("AmpAppTableColsList");
 		dupErrTableColsList = prop.getProperty("AMPDupErrDataTableColsList");
-		
+		//boolean initFlag = false;
 		// Printing Confing file Data
 		System.out.println("================================================");
 		System.out.println("topic Name : " + topicName);
@@ -102,7 +102,10 @@ public class AmpConsumer {
 		dbCon = new dbConnection();
 		String Query = " select * from " + ccwCommitTable;
 		hm = dbCon.executeQuery(Query);
-
+		if(hm.size() != 0){
+			System.out.println("hm size is : "+ hm.size());
+			initFlag = 1;
+		}
 		// print the topic name
 		System.out.println("Subscribed to topic " + topicName);
 		ObjectMapper objectMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
@@ -171,6 +174,7 @@ public class AmpConsumer {
 								System.err.println("Exception in update beginning offset when Offset is 0");
 								e.printStackTrace();
 							}
+							
 							consumer.seekToBeginning(partitions);
 
 						} else if (hm.get(topicPartition.partition()) == -1) {
@@ -195,13 +199,19 @@ public class AmpConsumer {
 								System.out.println(
 										topicPartition.partition() + " Partition, Reading from table commit offset");
 								//consumer.seekToBeginning(partitions);
+								if(initFlag == 0){
+									initFlag = 1;
+									consumer.seekToBeginning(partitions);
+								}
+								else
 								 consumer.seek(topicPartition,hm.get(topicPartition.partition()) + 1);
 								 
 							} else if ((!Strings
 									.isNullOrEmpty(strCheck = consumer.committed(topicPartition).toString()))) {
 								System.out
 										.println(topicPartition.partition() + " Partition, Reading from Commit offset");
-								consumer.seek(topicPartition, commitOffset + 1);
+								consumer.seekToBeginning(partitions);
+								//consumer.seek(topicPartition, commitOffset + 1);
 							} else
 								System.out.println("No Offset Matched.");
 
@@ -275,19 +285,19 @@ public class AmpConsumer {
 
 						if (i % 5 == 0) {
 							long lastOffset = partitionRecords.get(partitionRecords.size() - 1).offset();
-							consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));
+							//consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));
 							// getconn.updateCommitedOffset(hm, ccwCommitTable);
 						}
 
 						// Creating batch of 100 records
-						if (i++ % batchSize == 0) {
+						if (++i % batchSize == 0) {
 							if (uniDataBatch.size() > 0 || dupDataBatchMain.size() > 0) {
 								
 								//System.out.println("*************** Calling Batch execute query **************************");
 								if (uniDataBatch.size() > 0) {
 
 									System.out.println("1. ========== Insert into Unique table ===========");
-									dbCon.executeUniqueBatch(uniDataBatchMain);
+									dbCon.executeUniqueBatch(uniDataBatchMain, uniDataBatch, DupErrDataTable , dupErrTableColsList);
 									getconn.updateCommitedOffset(hm, ccwCommitTable);
 								}
 								if (dupDataBatchMain.size() > 0) {
@@ -303,37 +313,16 @@ public class AmpConsumer {
 							uniDataBatchMain.clear();
 							dupDataBatchMain.clear();
 							size = 0;
-
+							
+							//System.exit(0);
 						}
-					} // End Partiton records for
+						
+					} // End For loop of Partiton records 				
 					
-					if (uniDataBatch.size() > 0 || dupDataBatchMain.size() > 0) {
 
-						if (uniDataBatch.size() > 0) {
-							System.out.println("2. ========== Insert into Unique table =======");
-							dbCon.executeUniqueBatch(uniDataBatchMain);
-							getconn.updateCommitedOffset(hm, ccwCommitTable);
-						}
-						if (dupDataBatchMain.size() > 0) {
-							System.out.println("2. ========= Insert into Duplicate table =========");
-							dbCon.executeBatchWithDuplicateData(dupDataBatchMain);
-						}
-						insertFlag = true;
-						//System.out.println("*************************************************************");
-					}
-
-					// Clear fields
-					insertFlag = false;
-					uniDataBatch.clear();
-					uniDataBatchMain.clear();
-					dupDataBatchMain.clear();
-					size = 0;
-					System.out.println("Insert flag : " + insertFlag + ", Unique batch Size : " + uniDataBatch.size()
-							+ ", Duplicate batch Size : " + dupDataBatch.size());
-
-					// Commit Offset after partiton records iteration
+					//Commit Offset after partiton records iteration
 					long lastOffset = partitionRecords.get(partitionRecords.size() - 1).offset();
-					consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));
+					//consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));
 				}
 
 				// Commit offset after for Poll Loop
@@ -342,11 +331,41 @@ public class AmpConsumer {
 					getconn.updateNewOffset(hm, ccwCommitTable);
 				}
 
+				if (uniDataBatch.size() > 0 || dupDataBatchMain.size() > 0) {
+
+					if (uniDataBatch.size() > 0) {
+						System.out.println("2. ========== Insert into Unique table =======");
+						dbCon.executeUniqueBatch(uniDataBatchMain, uniDataBatch , DupErrDataTable , dupErrTableColsList);
+						getconn.updateCommitedOffset(hm, ccwCommitTable);
+					}
+					if (dupDataBatchMain.size() > 0) {
+						System.out.println("2. ========= Insert into Duplicate table =========");
+						dbCon.executeBatchWithDuplicateData(dupDataBatchMain);
+					}
+					insertFlag = true;
+					
+					// Clear fields
+					
+					uniDataBatch.clear();
+					uniDataBatchMain.clear();
+					dupDataBatchMain.clear();
+					size = 0;
+					System.out.println("Insert flag : " + insertFlag + ", Unique batch Size : " + uniDataBatch.size()
+							+ ", Duplicate batch Size : " + dupDataBatch.size());
+					
+					//System.exit(0);
+				}
+
+				
+				
+				insertFlag = false;
+				
+				
 				// Control on poll() Count
-				if (i > 20) {
-					System.out.println("Breaking while loop...!!");
-					break;
-				}				
+//				if (i > 5) {
+//					System.out.println("Breaking while loop...!!");
+//					break;
+//				}				
 
 			} // end While
 		} catch (Exception e) {
@@ -356,17 +375,17 @@ public class AmpConsumer {
 		}
 
 	}
-
+	
 	public static void prepareBatchQuery(commonUtility commObj, AmpCounsumerRespBean obj, Integer offset,
 			int Partition_Number, String Table, String colsList) {
 		String query = null;
 		try {
 			query = "insert into " + Table + " (" + colsList + ") " + " values ( "
-					+ commObj.toStringFormat(obj.getApplName()) + "," + obj.getAppReqId() + ","
-					+ commObj.toStringFormat(obj.getCCOUserId()) + "," + obj.getContractNumber() + ","
-					+ obj.getInstanceId() + "," + obj.getSerLineId() + ","
-					+ commObj.toStringFormat(obj.getSrcCpLineId()) + "," + commObj.toStringFormat(obj.getSubTnxType())
-					+ "," + commObj.toStringFormat(obj.getTrnxType()) + "," + commObj.dateFormat(obj.getTerDate()) + ","
+					+ commObj.toStringFormat(obj.getApplName()) + "," + obj.getAppReqId() + "," + commObj.toStringFormat(obj.getTrnxType())+  "," + commObj.toStringFormat(obj.getSubTnxType())+","
+					+ commObj.toStringFormat(obj.getCCOUserId()) + ","
+					+ obj.getInstanceId() + "," + obj.getContractNumber() + "," + obj.getSerLineId() + ","
+					+ commObj.toStringFormat(obj.getSrcCpLineId()) 
+					 + "," + commObj.dateFormat(obj.getTerDate()) + ","
 					+ offset + "," + Partition_Number + ")";
 			if (!Strings.isNullOrEmpty(query)) {
 				 //System.out.println("Query : "+ query);
