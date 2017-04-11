@@ -210,8 +210,8 @@ public class AmpConsumer {
 									.isNullOrEmpty(strCheck = consumer.committed(topicPartition).toString()))) {
 								System.out
 										.println(topicPartition.partition() + " Partition, Reading from Commit offset");
-								consumer.seekToBeginning(partitions);
-								//consumer.seek(topicPartition, commitOffset + 1);
+								//consumer.seekToBeginning(partitions);
+								consumer.seek(topicPartition, commitOffset + 1);
 							} else
 								System.out.println("No Offset Matched.");
 
@@ -225,10 +225,9 @@ public class AmpConsumer {
 			boolean recCheck = false;
 			int pollCount = 0;
 			dbConnection getconn = new dbConnection();
-			while (true) {
-				// System.out.println("Poll Count : "+ pollCount++);
+			while (true) {				
 
-				ConsumerRecords<String, String> records = consumer.poll(Poll_ms);// Poll_ms);
+				ConsumerRecords<String, String> records = consumer.poll(Poll_ms);
 				recCheck = false;
 				// Partion processing
 				for (TopicPartition partition : records.partitions()) {
@@ -236,20 +235,16 @@ public class AmpConsumer {
 
 					// Processing records from individual partition
 					for (ConsumerRecord<String, String> record : partitionRecords) {
-						recCheck = true;
-						//System.out.println(record.partition() + " || " + record.offset() + " || " + record.value());
+						recCheck = true;						
 						String JsongetString = new String(record.value());
-						// System.out.println("JsongetString : "+
-						// JsongetString);
-
+						
 						int intPartition_Number = record.partition();
 						Integer intOffset = (int) record.offset();
 
 						AmpCounsumerRespBean responseObj = null;
 						try {
 
-							objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-							// objectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+							objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);							
 							responseObj = objectMapper.readValue(JsongetString, AmpCounsumerRespBean.class);
 							uniDataBatch.add(JsongetString);
 						} catch (JsonParseException e) {
@@ -258,14 +253,14 @@ public class AmpConsumer {
 								dbCon.insertErrData(JsongetString, ErrDataTable);
 								continue;
 							}
-							// e.printStackTrace();
+							
 						} catch (JsonMappingException e) {
-							System.out.println("Error data hence inserting into table");
+							System.out.println("Error data hence inserting into table regarding JsonMappingException");
 							dbCon.insertErrData(JsongetString, ErrDataTable);
-							continue;
-							// e.printStackTrace();
+							continue;							
 						} catch (IOException e) {
-							e.printStackTrace();
+							System.out.println("Error data hence inserting into table regarding IOException");
+							//e.printStackTrace();
 							continue;
 						}
 
@@ -281,21 +276,16 @@ public class AmpConsumer {
 
 						size = uniDataBatch.size();
 
-						//System.out.println("Record Number => " + i + ", Size : " + size);
-
 						if (i % 5 == 0) {
 							long lastOffset = partitionRecords.get(partitionRecords.size() - 1).offset();
-							//consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));
-							// getconn.updateCommitedOffset(hm, ccwCommitTable);
+							consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));							
 						}
 
-						// Creating batch of 100 records
+						// Creating batch as per config prop file
 						if (++i % batchSize == 0) {
-							if (uniDataBatch.size() > 0 || dupDataBatchMain.size() > 0) {
+							if (uniDataBatch.size() > 0 || dupDataBatchMain.size() > 0) {							
 								
-								//System.out.println("*************** Calling Batch execute query **************************");
 								if (uniDataBatch.size() > 0) {
-
 									System.out.println("1. ========== Insert into Unique table ===========");
 									dbCon.executeUniqueBatch(uniDataBatchMain, uniDataBatch, DupErrDataTable , dupErrTableColsList);
 									getconn.updateCommitedOffset(hm, ccwCommitTable);
@@ -314,20 +304,17 @@ public class AmpConsumer {
 							dupDataBatchMain.clear();
 							size = 0;
 							
-							//System.exit(0);
 						}
 						
-					} // End For loop of Partiton records 				
-					
+					} // End For loop of Partiton records 			
 
 					//Commit Offset after partiton records iteration
 					long lastOffset = partitionRecords.get(partitionRecords.size() - 1).offset();
-					//consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));
+					consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));
 				}
 
 				// Commit offset after for Poll Loop
-				if (recCheck) {
-					// getconn.updateCommitedOffset(hm, ccwCommitTable);
+				if (recCheck) {					
 					getconn.updateNewOffset(hm, ccwCommitTable);
 				}
 
@@ -344,8 +331,7 @@ public class AmpConsumer {
 					}
 					insertFlag = true;
 					
-					// Clear fields
-					
+					// Clear fields					
 					uniDataBatch.clear();
 					uniDataBatchMain.clear();
 					dupDataBatchMain.clear();
@@ -353,20 +339,9 @@ public class AmpConsumer {
 					System.out.println("Insert flag : " + insertFlag + ", Unique batch Size : " + uniDataBatch.size()
 							+ ", Duplicate batch Size : " + dupDataBatch.size());
 					
-					//System.exit(0);
-				}
-
+				}		
+				insertFlag = false;			
 				
-				
-				insertFlag = false;
-				
-				
-				// Control on poll() Count
-//				if (i > 5) {
-//					System.out.println("Breaking while loop...!!");
-//					break;
-//				}				
-
 			} // end While
 		} catch (Exception e) {
 			System.out.println("Exception in Consumer class : " + e.getMessage());
@@ -403,7 +378,7 @@ public class AmpConsumer {
 			query = "insert into " + Table + " (" + colsList + ")" + " values (" + obj.getAppReqId() + ",'" + jsonData
 					+ "', sysdate )";
 			if (!Strings.isNullOrEmpty(query)) {
-				System.out.println("Duplicate Query  : " + query);
+				//System.out.println("Duplicate Query  : " + query);
 				dupDataBatchMain.add(query);
 			}
 		} catch (Exception e) {

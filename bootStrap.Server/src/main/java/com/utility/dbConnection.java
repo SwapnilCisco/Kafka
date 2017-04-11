@@ -23,11 +23,6 @@ public class dbConnection {
 	public Statement dbConn() {
 		try {
 			Class.forName("oracle.jdbc.driver.OracleDriver");
-//			con = DriverManager
-//					.getConnection("jdbc:oracle:thin:@((DESCRIPTION=(CONNECT_TIMEOUT=5)(TRANSPORT_CONNECT_TIMEOUT"
-//							+"=3)(RETRY_COUNT=1)(ADDRESS_LIST=(LOAD_BALANCE=ON)(FAILOVER=ON)(ADDRESS=(PROTOCOL"
-//							+"=TCP)(HOST=scan-nprd-2023)(PORT=1541)))(CONNECT_DATA=(SERVICE_NAME=DV1CSF_SRVC_O"
-//							+"TH.cisco.com)(SERVER=DEDICATED)))", "APPS", "P0t3ntial");
 			 con = DriverManager
 					.getConnection("jdbc:oracle:thin:@scan-nprd-2023:1541/DV1CSF_SRVC_OTH.cisco.com", "APPS", "P0t3ntial");
 			Statement stmt = con.createStatement();
