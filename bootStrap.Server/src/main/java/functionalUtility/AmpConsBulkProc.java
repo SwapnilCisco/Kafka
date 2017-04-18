@@ -1,4 +1,4 @@
-package functionalUtility;
+/*package functionalUtility;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -38,7 +38,7 @@ import com.utility.commonUtility;
 import com.utility.dbConnection;
 import joptsimple.internal.Strings;
 
-public class AmpConsumer {
+public class AmpConsBulkProc{
 
 	static KafkaConsumer<String, String> consumer = null;
 	static Map<Integer, Integer> hm = null;
@@ -49,17 +49,30 @@ public class AmpConsumer {
 	static List<String> dupDataBatch = new ArrayList<String>();
 	static Set<String> uniDataBatchMain = new HashSet<String>();
 	static List<String> dupDataBatchMain = new ArrayList<String>();
+	//New Var as per procedure
+	static Object[] setAPPL_NAME = null;
+	static Object[] setAppl_ID = null;
+	static Object[] setTRANSACTION_TYPE = null;
+	static Object[] setSUB_TRX_TYPE= null;
+	static Object[] setCCO_USER_ID = null;
+	static Object[] setINSTANCE_ID = null;
+	static Object[] setCONTRACT_NUMBER = null;
+	static Object[] setSERVICE_LINE_ID = null;
+	static Object[] setSOURCE_CP_LINE_ID = null;
+	static Object[] setTERMINATION_DATE =null;
+	static Object[] setOFFSET = null;
+	static Object[] setPARTITION = null;
+	
+	
 	static int batchSize = 0;
 	static int Poll_ms = 0;
 	static String BackupTable = null;
 	static String DupErrDataTable = null;
 	static int size = 0;
+	static int counter =0;
 	static String mainTableColsList = null;	
 	static String dupErrTableColsList = null;
 	static int initFlag = 0;
-	static String topicName="";
-	static String groupId="";
-	
 	public static void main(String[] argv) {
 
 		commonUtility comm = new commonUtility();
@@ -67,8 +80,8 @@ public class AmpConsumer {
 
 		// fetching properties data as input
 		// ======================================
-		topicName = prop.getProperty("AmpTopicname");
-		groupId = prop.getProperty("AmpGroupId");
+		String topicName = prop.getProperty("AmpTopicname");
+		String groupId = prop.getProperty("AmpGroupId");
 		ccwTable = prop.getProperty("AmpApptable");
 		ccwCommitTable = prop.getProperty("AmpCommitTable");
 		String strServerName = prop.getProperty("AmpBootstrapServer");
@@ -89,7 +102,24 @@ public class AmpConsumer {
 		System.out.println("Dup/Error JSON Table : " + DupErrDataTable);
 		System.out.println("Batch Size : " + batchSize);
 		System.out.println("================================================");
+		
+		//Initialize Array
 
+		setAPPL_NAME = new Object[batchSize];
+		setAppl_ID = new Object[batchSize];
+		setTRANSACTION_TYPE =  new Object[batchSize];
+		setSUB_TRX_TYPE=  new Object[batchSize];
+		setCCO_USER_ID =  new Object[batchSize];
+		setINSTANCE_ID =  new Object[batchSize];
+		setCONTRACT_NUMBER =  new Object[batchSize];
+		setSERVICE_LINE_ID =  new Object[batchSize];
+		setSOURCE_CP_LINE_ID =  new Object[batchSize];
+		setTERMINATION_DATE =  new Object[batchSize];
+		setOFFSET =  new Object[batchSize];
+		setPARTITION =  new Object[batchSize];
+		
+		//
+		
 		// Kafka consumer configuration settings
 		Properties configProperties = new Properties();
 		configProperties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, strServerName);
@@ -158,7 +188,7 @@ public class AmpConsumer {
 							try {
 								hm.put(topicPartition.partition(), (int) consumer.position(topicPartition));
 								dbCon.insertCommitedOffset(topicPartition.partition(),
-										consumer.position(topicPartition), ccwCommitTable,topicName,groupId);
+										consumer.position(topicPartition), ccwCommitTable);
 							} catch (SQLException e1) {
 								System.out.println("Exception while inserting newly Partion Number in table");
 								e1.printStackTrace();
@@ -205,21 +235,20 @@ public class AmpConsumer {
 								
 								if(initFlag == 0){
 									initFlag = 1;
-									System.out.println("Print 1");
+									//System.out.println("Print 1");
 									consumer.seekToBeginning(partitions);
-									//consumer.seek(topicPartition, 1);
 								}else{
-									 consumer.seek(topicPartition,hm.get(topicPartition.partition()) + 1); // 449999
-									System.out.println("Print 2");
-									//consumer.seek(topicPartition,130018);
+									 //consumer.seek(topicPartition,hm.get(topicPartition.partition()) + 1); // 449999
+									//System.out.println("Print 2");
+									 consumer.seek(topicPartition,1); // remove
 								}
 								 
 							} else if ((!Strings
 									.isNullOrEmpty(strCheck = consumer.committed(topicPartition).toString()))) {
 								System.out
 										.println(topicPartition.partition() + " Partition, Reading from Commit offset");
-								//consumer.seekToBeginning(partitions);
-								consumer.seek(topicPartition, commitOffset + 1);
+								consumer.seekToBeginning(partitions);  // remove
+								//consumer.seek(topicPartition, commitOffset + 1);
 							} else
 								System.out.println("No Offset Matched.");
 
@@ -254,6 +283,7 @@ public class AmpConsumer {
 
 							objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);							
 							responseObj = objectMapper.readValue(JsongetString, AmpCounsumerRespBean.class);
+							System.out.println("JSON :" + JsongetString);
 							uniDataBatch.add(JsongetString);
 						} catch (JsonParseException e) {
 							System.out.println("1. Json Parse Exception exception, hence inserting into error table");
@@ -298,13 +328,14 @@ public class AmpConsumer {
 						}						
 						else{
 							prepareBatchQuery(comm, responseObj, intOffset, intPartition_Number, ccwTable,
-									mainTableColsList);
+									mainTableColsList, counter);
+							counter++;
 						}						
 						size = uniDataBatch.size();
 
 						if (i % 5 == 0) {
 							long lastOffset = partitionRecords.get(partitionRecords.size() - 1).offset();
-							consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));							
+							//consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));							
 						}
 
 						// Creating batch as per config prop file
@@ -313,7 +344,22 @@ public class AmpConsumer {
 								
 								if (uniDataBatch.size() > 0) {
 									System.out.println("1. ========== Insert into Unique table ===========");
-									dbCon.executeUniqueBatch(uniDataBatchMain, uniDataBatch, DupErrDataTable , dupErrTableColsList);
+									//dbCon.executeUniqueBatch(uniDataBatchMain, uniDataBatch, DupErrDataTable , dupErrTableColsList);
+									
+									System.out.println("----- setAPPL_NAME length : "+ setAPPL_NAME.length);
+									dbCon.executeBatchProcedure(setAPPL_NAME ,											
+														setAppl_ID,
+														setTRANSACTION_TYPE ,
+														setSUB_TRX_TYPE ,
+														setCCO_USER_ID ,
+														setINSTANCE_ID ,
+														 setCONTRACT_NUMBER ,
+														 setSERVICE_LINE_ID ,
+														 setSOURCE_CP_LINE_ID ,
+														 setTERMINATION_DATE ,
+														 setOFFSET ,
+														 setPARTITION
+														);
 									getconn.updateCommitedOffset(hm, ccwCommitTable);
 								}
 								if (dupDataBatchMain.size() > 0) {
@@ -329,26 +375,40 @@ public class AmpConsumer {
 							uniDataBatchMain.clear();
 							dupDataBatchMain.clear();
 							size = 0;
+							counter = 0;
 							
 						}
 						
+												
 					} // End For loop of Partiton records 			
 
 					//Commit Offset after partiton records iteration
 					long lastOffset = partitionRecords.get(partitionRecords.size() - 1).offset();
-					consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));
+					//consumer.commitSync(Collections.singletonMap(partition, new OffsetAndMetadata(lastOffset + 1)));
 				}
 
 				// Commit offset after for Poll Loop
 				if (recCheck) {					
-					getconn.updateNewOffset(hm, ccwCommitTable,topicName,groupId);
+					getconn.updateNewOffset(hm, ccwCommitTable);
 				}
 
 				if (uniDataBatch.size() > 0 || dupDataBatchMain.size() > 0) {
 
 					if (uniDataBatch.size() > 0) {
 						System.out.println("2. ========== Insert into Unique table =======");
-						dbCon.executeUniqueBatch(uniDataBatchMain, uniDataBatch , DupErrDataTable , dupErrTableColsList);
+						dbCon.executeBatchProcedure(setAPPL_NAME,
+						setAppl_ID,	
+						setTRANSACTION_TYPE,
+						setSUB_TRX_TYPE,
+						setCCO_USER_ID,
+						setINSTANCE_ID,
+						setCONTRACT_NUMBER,
+						setSERVICE_LINE_ID,
+						setSOURCE_CP_LINE_ID,	
+						setTERMINATION_DATE,
+						setOFFSET,
+						setPARTITION	);
+						//dbCon.executeUniqueBatch(uniDataBatchMain, uniDataBatch , DupErrDataTable , dupErrTableColsList);
 						getconn.updateCommitedOffset(hm, ccwCommitTable);
 					}
 					if (dupDataBatchMain.size() > 0) {
@@ -362,6 +422,7 @@ public class AmpConsumer {
 					uniDataBatchMain.clear();
 					dupDataBatchMain.clear();
 					size = 0;
+					counter = 0;
 					System.out.println("Insert flag : " + insertFlag + ", Unique batch Size : " + uniDataBatch.size()
 							+ ", Duplicate batch Size : " + dupDataBatch.size());
 					
@@ -374,8 +435,7 @@ public class AmpConsumer {
 			String errMsg = e.getMessage().toString();
 			if(errMsg.contains("poll()")){
 				System.out.println("True Contain");
-				// Trigger mail
-				AmpConsumer.main(argv);
+				AmpConsBulkProc.main(argv);//change 17
 			}else{
 				System.out.println("Please check the other Ex exception");
 			}
@@ -386,20 +446,27 @@ public class AmpConsumer {
 	}
 	
 	public static void prepareBatchQuery(commonUtility commObj, AmpCounsumerRespBean obj, Integer offset,
-			int Partition_Number, String Table, String colsList) {
+			int Partition_Number, String Table, String colsList, int counter) {
 		String query = null;
 		try {
-			query = "insert into " + Table + " (" + colsList + ") " + " values ( "
-					+ commObj.toStringFormat(obj.getApplName()) + "," + obj.getAppReqId() + "," + commObj.toStringFormat(obj.getTrnxType())+  "," + commObj.toStringFormat(obj.getSubTnxType())+","
-					+ commObj.toStringFormat(obj.getCCOUserId()) + ","
-					+ obj.getInstanceId() + "," + obj.getContractNumber() + "," + obj.getSerLineId() + ","
-					+ commObj.toStringFormat(obj.getSrcCpLineId()) 
-					 + "," + commObj.dateFormat(obj.getTerDate()) + ","
-					+ offset + "," + Partition_Number + ")";
-			if (!Strings.isNullOrEmpty(query)) {
-				 //System.out.println("Query : "+ query);
-				uniDataBatchMain.add(query);
-			}
+			System.out.println("********* Counter : "+ counter);
+			
+			
+			setAPPL_NAME[counter] = obj.getApplName();
+			setAppl_ID[counter] = (int) obj.getAppReqId();	
+			setTRANSACTION_TYPE[counter]  = obj.getTrnxType();
+			setSUB_TRX_TYPE[counter]  = obj.getSubTnxType();
+			setCCO_USER_ID[counter]  = obj.getCCOUserId() ;
+			setINSTANCE_ID[counter]  = (int) obj.getInstanceId();
+			setCONTRACT_NUMBER[counter]  = (int) obj.getContractNumber(); 	
+			setSERVICE_LINE_ID[counter]  =  (int) obj.getSerLineId();	
+			setSOURCE_CP_LINE_ID[counter]  =obj.getSrcCpLineId(); 	
+			setTERMINATION_DATE[counter]  = obj.getTerDate() ;
+			setOFFSET[counter]  = offset ;
+			setPARTITION[counter]  = Partition_Number ;	
+			
+			System.out.println("setAPPL_NAME[counter] Count => "+ setAPPL_NAME.length);
+			
 		} catch (Exception e) {
 			System.out.println("Exception in prepareBatchQuery : " + e.getMessage());
 		}
@@ -421,3 +488,4 @@ public class AmpConsumer {
 	}
 
 }
+*/

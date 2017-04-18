@@ -1,6 +1,8 @@
 package com.utility;
 
+import java.sql.Array;
 import java.sql.BatchUpdateException;
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -134,10 +136,10 @@ public class dbConnection {
 	*/
 	
 	
-	public void insertErrData(String Json ,String ccwTable) {
+	public void insertErrData(int appl_req_id , String Json ,String errTable) {
 		try {			
 			Statement stmt = dbConn(); 
-			String query = "insert into "+ccwTable+" values (1,'"+Json+"',sysdate)";
+			String query = "insert into "+errTable+" values ("+appl_req_id+",'"+Json+"',sysdate)";
 			System.out.println("Err Qruey : "+ query);
 			if (!Strings.isNullOrEmpty(query)) {
 				stmt.execute(query);
@@ -325,6 +327,75 @@ public class dbConnection {
 			return true;
 	}
 	
+	
+	
+
+	public void executeBatchProcedure(
+			Object[] setAPPL_NAME ,
+			Object[] setAppl_ID,
+			Object[] setTRANSACTION_TYPE ,
+			Object[] setSUB_TRX_TYPE,
+			Object[] setCCO_USER_ID ,
+			Object[] setINSTANCE_ID ,
+			Object[] setCONTRACT_NUMBER ,
+			Object[] setSERVICE_LINE_ID ,
+			Object[] setSOURCE_CP_LINE_ID ,
+			Object[] setTERMINATION_DATE ,
+			Object[] setOFFSET ,
+			Object[] setPARTITION
+			 ) throws SQLException {		
+			    
+		try {
+			Class.forName("oracle.jdbc.driver.OracleDriver");
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		 con = DriverManager.getConnection("jdbc:oracle:thin:@scan-nprd-2023:1541/DV1CSF_SRVC_OTH.cisco.com", "APPS", "P0t3ntial");
+		 
+		
+		Array appl_name = con.createArrayOf("fnd_table_of_varchar2_255", setAPPL_NAME);
+		Array appl_req_id = con.createArrayOf("fnd_table_of_number", setAppl_ID);
+		Array tnx_type = con.createArrayOf("fnd_table_of_varchar2_255", setAPPL_NAME);
+		Array subTnx_type = con.createArrayOf("fnd_table_of_varchar2_255", setAPPL_NAME);
+		Array cco_usr_id = con.createArrayOf("fnd_table_of_varchar2_255", setAPPL_NAME);
+		Array inst_num = con.createArrayOf("fnd_table_of_number", setAPPL_NAME);
+		Array cont_num = con.createArrayOf("fnd_table_of_number", setAPPL_NAME);
+		Array ser_ln_id = con.createArrayOf("fnd_table_of_number", setAPPL_NAME);
+		Array src_cp_ln_id = con.createArrayOf("fnd_table_of_varchar2_255", setAPPL_NAME);
+		Array term_date = con.createArrayOf("fnd_table_of_varchar2_255", setAPPL_NAME);
+		Array offset = con.createArrayOf("fnd_table_of_number", setAPPL_NAME);
+		Array partition = con.createArrayOf("fnd_table_of_number", setAPPL_NAME);		
+		
+		System.out.println("Batch Records Count = > "+ setAPPL_NAME.length);
+		
+		//Statement stmt = dbConn();
+		try {	
+			System.out.println("Calling procedure....!!!");
+			CallableStatement callStmt = con.prepareCall("call Apps.kafkaBulkInsert(?,?,?,?,?,?,?,?,?,?,?,?)");
+			callStmt.setArray(1, appl_name);
+			callStmt.setArray(2, appl_req_id);
+			callStmt.setArray(3, tnx_type);
+			callStmt.setArray(4, subTnx_type);
+			callStmt.setArray(5, cco_usr_id);
+			callStmt.setArray(6, inst_num);
+			callStmt.setArray(7, cont_num);
+			callStmt.setArray(8, ser_ln_id);
+			callStmt.setArray(9, appl_name);
+			callStmt.setArray(10, src_cp_ln_id);
+			callStmt.setArray(11, offset);
+			callStmt.setArray(12, partition);
+			
+			callStmt.execute();
+			
+			
+		}catch (SQLException buex) {
+			System.out.println("Exception in executeBatchProcedure : "+ buex.getMessage());
+		}	
+		
+	}
+	
+	
 	public void executeBatchWithDuplicateData(List<String> batch) throws SQLException {		
 		
 		System.out.println("Inside executeBatchWithDuplicateData function , Batch Records Count = > "+ batch.size());
@@ -417,7 +488,7 @@ public class dbConnection {
 		}
 	}
 	
-	public void updateNewOffset(Map<Integer, Integer> hm, String ccwCommitTable) throws SQLException {
+	public void updateNewOffset(Map<Integer, Integer> hm, String ccwCommitTable, String topicName, String group) throws SQLException {
 		try {
 			Statement stmt = dbConn();
 			System.out.println("inside updateNewOffset function ");
@@ -443,7 +514,7 @@ public class dbConnection {
 					}						
 				}
 				else{
-					insertCommitedOffset(Integer.parseInt(e.getKey().toString()), Integer.parseInt(e.getValue().toString()), ccwCommitTable);
+					insertCommitedOffset(Integer.parseInt(e.getKey().toString()), Integer.parseInt(e.getValue().toString()), ccwCommitTable,topicName,  group);
 				}
 				
 			}
@@ -472,12 +543,14 @@ public class dbConnection {
 		}
 	}
 
-	public void insertCommitedOffset(int part_num, long intOffset, String ccwCommitTable) throws SQLException {
+	public void insertCommitedOffset(int part_num, long intOffset, String ccwCommitTable,String topicName, String groupId) throws SQLException {
 		try {
 			Statement stmt = dbConn();
-			String offsetCommitQuery = " insert into "+ccwCommitTable+" (Partition_number, offset) values ("
-					+ part_num + "," + intOffset + ")";
-
+			String offsetCommitQuery = /*" insert into "+ccwCommitTable+" (Partition_number, offset,topic,consumer) values ("
+					+ part_num + "," + intOffset + ","+ topicName + "," + groupId + ")";
+*/
+			
+			"insert into "+ccwCommitTable+"(Partition_number, offset,topic,consumer) values ("+ part_num + "," + intOffset + ",'"+ topicName + "','" + groupId + "')";
 			 System.out.println("Offset Query : "+ offsetCommitQuery);
 			if (!Strings.isNullOrEmpty(offsetCommitQuery)) {
 				stmt.execute(offsetCommitQuery);
